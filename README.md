@@ -1,4 +1,6 @@
 # SOF-FINAL
+## Notice: ERD have offically been discountinued, please use G1.html for the web
+
 Yes, this is AI slop.
 Yes, a single person made this despite being a group project and all.
 
