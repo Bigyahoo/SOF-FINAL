@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QuickBite – Thức ăn nhanh giao siêu tốc</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --fire: #FF3B1F;
+    --ember: #FF8C00;
+    --char: #1A1A1A;
+    --ash: #2E2E2E;
+    --smoke: #F5F0EB;
+    --white: #FFFFFF;
+    --green: #2ECC71;
+    --red-err: #E74C3C;
+    --radius: 12px;
+    --shadow: 0 8px 32px rgba(0,0,0,0.18);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--char); color: var(--white); min-height: 100vh; }
+
+  /* ======= UTILITY ======= */
+  .hidden { display: none !important; }
+  .btn-fire {
+    background: linear-gradient(135deg, var(--fire), var(--ember));
+    color: #fff; border: none; border-radius: var(--radius);
+    padding: 12px 28px; font-size: 15px; font-weight: 700;
+    cursor: pointer; transition: transform .15s, box-shadow .15s;
+    letter-spacing: .5px;
+  }
+  .btn-fire:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255,59,31,.45); }
+  .btn-ghost {
+    background: transparent; color: var(--white); border: 2px solid var(--fire);
+    border-radius: var(--radius); padding: 10px 24px; font-size: 14px;
+    font-weight: 600; cursor: pointer; transition: background .2s;
+  }
+  .btn-ghost:hover { background: var(--fire); }
+  .tag {
+    display: inline-block; background: var(--fire); color: #fff;
+    font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 20px;
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+
+  /* ======= TOAST ======= */
+  #toast {
+    position: fixed; top: 24px; right: 24px; z-index: 9999;
+    background: var(--ash); border-left: 4px solid var(--green);
+    padding: 14px 20px; border-radius: var(--radius);
+    font-size: 14px; font-weight: 600; min-width: 240px;
+    box-shadow: var(--shadow); transform: translateX(120%);
+    transition: transform .35s cubic-bezier(.175,.885,.32,1.275);
+  }
+  #toast.show { transform: translateX(0); }
+  #toast.error { border-left-color: var(--red-err); }
+
+  /* ======= SCREENS ======= */
+  .screen { display: none; min-height: 100vh; }
+  .screen.active { display: flex; }
+
+  /* ======= AUTH MODAL ======= */
+  .auth-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.65); z-index: 800;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity .25s; padding: 20px;
+  }
+  .auth-overlay.open { opacity: 1; pointer-events: all; }
+  .login-box {
+    background: var(--ash); border-radius: 20px; padding: 48px 40px;
+    width: 100%; max-width: 420px; box-shadow: var(--shadow);
+    border: 1px solid rgba(255,255,255,.07);
+    position: relative;
+    transform: translateY(20px); transition: transform .3s cubic-bezier(.175,.885,.32,1.275);
+  }
+  .auth-overlay.open .login-box { transform: translateY(0); }
+  .auth-close {
+    position: absolute; top: 18px; right: 18px; background: none; border: none;
+    color: #888; font-size: 22px; cursor: pointer; transition: color .2s;
+  }
+  .auth-close:hover { color: var(--fire); }
+  .login-logo {
+    font-family: 'Bebas Neue', sans-serif; font-size: 42px;
+    background: linear-gradient(135deg, var(--fire), var(--ember));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 4px;
+  }
+  .login-sub { color: #999; font-size: 14px; margin-bottom: 32px; }
+  .input-group { margin-bottom: 18px; }
+  .input-group label { display: block; font-size: 13px; font-weight: 600; color: #bbb; margin-bottom: 7px; }
+  .input-group input {
+    width: 100%; background: var(--char); border: 1.5px solid #3a3a3a;
+    color: var(--white); border-radius: var(--radius); padding: 12px 16px;
+    font-size: 15px; font-family: 'Inter', sans-serif;
+    transition: border-color .2s;
+  }
+  .input-group input:focus { outline: none; border-color: var(--fire); }
+  .login-err { color: var(--red-err); font-size: 13px; margin-bottom: 12px; min-height: 20px; }
+  .login-ok { color: var(--green); font-size: 13px; margin-bottom: 12px; min-height: 20px; }
+  .login-btn { width: 100%; padding: 14px; font-size: 16px; margin-top: 4px; }
+  .login-hint { margin-top: 18px; font-size: 12px; color: #666; text-align: center; }
+
+  /* AUTH TABS */
+  .auth-tabs {
+    display: flex; background: var(--char); border-radius: var(--radius);
+    padding: 4px; margin-bottom: 28px; border: 1.5px solid #3a3a3a;
+  }
+  .auth-tab {
+    flex: 1; background: none; border: none; color: #888; font-size: 14px;
+    font-weight: 700; padding: 10px; border-radius: 8px; cursor: pointer;
+    transition: all .2s; letter-spacing: .5px;
+  }
+  .auth-tab.active {
+    background: linear-gradient(135deg, var(--fire), var(--ember)); color: #fff;
+  }
+  .auth-form { display: none; }
+  .auth-form.active { display: block; }
+
+  /* ======= MAIN LAYOUT ======= */
+  #screen-main { flex-direction: column; background: var(--char); }
+
+  /* NAV */
+  nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 40px; background: var(--ash);
+    border-bottom: 1px solid rgba(255,255,255,.06); position: sticky; top: 0; z-index: 100;
+  }
+  .nav-logo { font-family: 'Bebas Neue', sans-serif; font-size: 30px;
+    background: linear-gradient(135deg, var(--fire), var(--ember));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .nav-center { display: flex; gap: 8px; }
+  .nav-tab {
+    background: none; border: none; color: #888; font-size: 14px; font-weight: 600;
+    padding: 8px 18px; border-radius: 8px; cursor: pointer; transition: all .2s;
+  }
+  .nav-tab:hover, .nav-tab.active { background: rgba(255,59,31,.15); color: var(--fire); }
+  .nav-right { display: flex; align-items: center; gap: 16px; }
+  .cart-icon {
+    position: relative; background: none; border: 2px solid #3a3a3a;
+    color: var(--white); border-radius: 10px; padding: 8px 14px;
+    font-size: 20px; cursor: pointer; transition: border-color .2s;
+  }
+  .cart-icon:hover { border-color: var(--fire); }
+  #cart-count {
+    position: absolute; top: -8px; right: -8px;
+    background: var(--fire); color: #fff; font-size: 11px; font-weight: 700;
+    width: 20px; height: 20px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .user-name { font-size: 14px; color: #ccc; }
+
+  /* HERO */
+  .hero {
+    background: radial-gradient(ellipse at 80% 50%, #3a1200 0%, var(--char) 60%);
+    padding: 60px 40px; display: flex; align-items: center; gap: 48px;
+    min-height: 320px;
+  }
+  .hero-text { flex: 1; }
+  .hero-eyebrow { font-size: 12px; font-weight: 700; color: var(--ember); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px; }
+  .hero-title { font-family: 'Bebas Neue', sans-serif; font-size: 72px; line-height: 1; margin-bottom: 16px; }
+  .hero-title span { color: var(--fire); }
+  .hero-desc { color: #aaa; font-size: 16px; line-height: 1.7; max-width: 460px; margin-bottom: 28px; }
+  .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+  .hero-visual {
+    font-size: 120px; flex-shrink: 0;
+    filter: drop-shadow(0 0 30px rgba(255,140,0,.4));
+    animation: float 3s ease-in-out infinite;
+  }
+  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+
+  /* MENU */
+  .menu-section { padding: 40px 40px; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+  .section-title { font-family: 'Bebas Neue', sans-serif; font-size: 36px; letter-spacing: 1px; }
+  .cat-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 28px; }
+  .cat-btn {
+    background: var(--ash); color: #aaa; border: 1.5px solid #3a3a3a;
+    border-radius: 20px; padding: 7px 18px; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all .2s;
+  }
+  .cat-btn:hover, .cat-btn.active { background: var(--fire); color: #fff; border-color: var(--fire); }
+  .menu-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px;
+  }
+  .menu-card {
+    background: var(--ash); border-radius: 16px; overflow: hidden;
+    border: 1.5px solid rgba(255,255,255,.06); transition: transform .2s, box-shadow .2s;
+    cursor: pointer;
+  }
+  .menu-card:hover { transform: translateY(-4px); box-shadow: 0 12px 36px rgba(255,59,31,.2); }
+  .card-img { font-size: 64px; text-align: center; padding: 28px 16px 16px; background: rgba(0,0,0,.2); }
+  .card-body { padding: 16px; }
+  .card-name { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+  .card-desc { font-size: 12px; color: #888; margin-bottom: 12px; line-height: 1.5; }
+  .card-footer { display: flex; align-items: center; justify-content: space-between; }
+  .card-price { font-size: 18px; font-weight: 700; color: var(--ember); }
+  .card-add {
+    background: var(--fire); color: #fff; border: none; border-radius: 8px;
+    width: 32px; height: 32px; font-size: 20px; font-weight: 700;
+    cursor: pointer; transition: background .2s; display: flex; align-items: center; justify-content: center;
+  }
+  .card-add:hover { background: var(--ember); }
+
+  /* CART PANEL */
+  .cart-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 500;
+    opacity: 0; pointer-events: none; transition: opacity .3s;
+  }
+  .cart-overlay.open { opacity: 1; pointer-events: all; }
+  .cart-panel {
+    position: fixed; right: -420px; top: 0; bottom: 0; width: 100%; max-width: 420px;
+    background: var(--ash); z-index: 600; transition: right .35s cubic-bezier(.4,0,.2,1);
+    display: flex; flex-direction: column;
+    border-left: 1px solid rgba(255,255,255,.08);
+  }
+  .cart-panel.open { right: 0; }
+  .cart-header {
+    padding: 24px; border-bottom: 1px solid rgba(255,255,255,.08);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .cart-header h2 { font-size: 22px; font-weight: 700; }
+  .cart-close {
+    background: none; border: none; color: #aaa; font-size: 24px;
+    cursor: pointer; transition: color .2s; padding: 4px;
+  }
+  .cart-close:hover { color: var(--fire); }
+  .cart-items { flex: 1; overflow-y: auto; padding: 16px 24px; }
+  .cart-empty { text-align: center; padding: 60px 0; color: #666; }
+  .cart-empty .cart-empty-icon { font-size: 56px; margin-bottom: 12px; }
+  .cart-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,.06);
+  }
+  .ci-icon { font-size: 36px; flex-shrink: 0; }
+  .ci-info { flex: 1; }
+  .ci-name { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
+  .ci-price { color: var(--ember); font-size: 13px; font-weight: 700; }
+  .ci-qty {
+    display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  }
+  .qty-btn {
+    width: 28px; height: 28px; border-radius: 6px; border: 1.5px solid #555;
+    background: none; color: #fff; font-size: 18px; font-weight: 700;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: border-color .2s;
+  }
+  .qty-btn:hover { border-color: var(--fire); color: var(--fire); }
+  .ci-qty span { font-weight: 700; min-width: 16px; text-align: center; }
+  .cart-footer {
+    padding: 24px; border-top: 1px solid rgba(255,255,255,.08);
+  }
+  .cart-total {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 20px;
+  }
+  .cart-total .label { color: #aaa; font-size: 15px; }
+  .cart-total .amount { font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: var(--ember); }
+  .checkout-btn { width: 100%; padding: 16px; font-size: 16px; }
+
+  /* PAYMENT SCREEN */
+  #screen-payment {
+    flex-direction: column; align-items: center; justify-content: center;
+    padding: 40px 20px;
+    background: radial-gradient(ellipse at 50% 0%, #1a0a00, var(--char) 60%);
+  }
+  .payment-box {
+    background: var(--ash); border-radius: 20px; padding: 40px;
+    width: 100%; max-width: 500px; box-shadow: var(--shadow);
+    border: 1px solid rgba(255,255,255,.07);
+  }
+  .payment-title { font-family: 'Bebas Neue', sans-serif; font-size: 36px; margin-bottom: 6px; }
+  .payment-sub { color: #888; font-size: 14px; margin-bottom: 30px; }
+  .order-summary {
+    background: var(--char); border-radius: 12px; padding: 18px; margin-bottom: 28px;
+  }
+  .order-summary h4 { font-size: 13px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+  .order-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px; }
+  .order-row .name { color: #ccc; }
+  .order-row .val { font-weight: 600; }
+  .order-divider { border: none; border-top: 1px solid #333; margin: 12px 0; }
+  .order-total-row { display: flex; justify-content: space-between; font-size: 18px; font-weight: 700; }
+  .order-total-row .val { color: var(--ember); }
+  .pay-methods { display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap; }
+  .pay-method {
+    flex: 1; min-width: 120px; padding: 14px; border-radius: 12px;
+    border: 2px solid #3a3a3a; background: var(--char); cursor: pointer;
+    text-align: center; transition: all .2s;
+  }
+  .pay-method:hover { border-color: var(--fire); }
+  .pay-method.selected { border-color: var(--fire); background: rgba(255,59,31,.1); }
+  .pay-method .icon { font-size: 28px; margin-bottom: 6px; }
+  .pay-method .label { font-size: 13px; font-weight: 600; }
+  .qr-block {
+    background: var(--white); border-radius: 16px; padding: 20px;
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+    margin-bottom: 24px;
+  }
+  .qr-block .qr-img { font-size: 100px; line-height: 1; }
+  .qr-block p { color: var(--char); font-size: 13px; text-align: center; font-weight: 600; }
+  .pay-confirm-btn { width: 100%; padding: 16px; font-size: 16px; }
+  .pay-back { background: none; border: none; color: #888; font-size: 14px; cursor: pointer; margin-top: 16px; width: 100%; text-align: center; transition: color .2s; }
+  .pay-back:hover { color: var(--fire); }
+
+  /* SUCCESS */
+  #screen-success {
+    flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 40px;
+    background: radial-gradient(ellipse at 50% 30%, #002a1a, var(--char) 60%);
+  }
+  .success-icon { font-size: 96px; animation: pop .5s cubic-bezier(.175,.885,.32,1.275); }
+  @keyframes pop { 0%{transform:scale(0)} 100%{transform:scale(1)} }
+  .success-title { font-family: 'Bebas Neue', sans-serif; font-size: 52px; color: var(--green); margin: 16px 0 8px; }
+  .success-msg { color: #aaa; font-size: 16px; max-width: 380px; line-height: 1.7; margin-bottom: 32px; }
+  .success-order {
+    background: var(--ash); border-radius: 16px; padding: 24px; margin-bottom: 32px;
+    min-width: 320px; border: 1.5px solid rgba(46,204,113,.2);
+  }
+  .success-order h4 { color: var(--green); font-size: 13px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+  .success-detail { font-size: 14px; color: #ccc; margin-bottom: 6px; }
+  .success-detail span { color: var(--white); font-weight: 700; }
+
+  /* RESPONSIVE */
+  @media (max-width: 768px) {
+    nav { padding: 14px 20px; }
+    .nav-center { display: none; }
+    .hero { padding: 40px 20px; flex-direction: column; text-align: center; }
+    .hero-title { font-size: 52px; }
+    .hero-visual { font-size: 72px; }
+    .hero-actions { justify-content: center; }
+    .menu-section { padding: 24px 20px; }
+    .menu-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- ====== AUTH MODAL ====== -->
+<div id="auth-overlay" class="auth-overlay">
+  <div class="login-box">
+    <button class="auth-close" onclick="closeAuthModal()">✕</button>
+    <div class="login-logo">🍔 QuickBite</div>
+    <div class="login-sub">Đặt đồ ăn nhanh – Giao siêu tốc 30 phút</div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login" onclick="setAuthTab('login')">Đăng nhập</button>
+      <button class="auth-tab" id="tab-register" onclick="setAuthTab('register')">Đăng ký</button>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <div class="auth-form active" id="form-login">
+      <div class="input-group">
+        <label>Tên đăng nhập</label>
+        <input type="text" id="inp-user" placeholder="Nhập username..." value="admin">
+      </div>
+      <div class="input-group">
+        <label>Mật khẩu</label>
+        <input type="password" id="inp-pass" placeholder="Nhập mật khẩu..." value="">
+      </div>
+      <div class="login-err" id="login-err"></div>
+      <button class="btn-fire login-btn" onclick="doLogin()">Đăng nhập ngay</button>
+      <div class="login-hint">💡 Gợi ý: username <strong>admin</strong> / password <strong>1234</strong></div>
+    </div>
+
+    <!-- REGISTER FORM -->
+    <div class="auth-form" id="form-register">
+      <div class="input-group">
+        <label>Tên đăng nhập</label>
+        <input type="text" id="reg-user" placeholder="Chọn username...">
+      </div>
+      <div class="input-group">
+        <label>Mật khẩu</label>
+        <input type="password" id="reg-pass" placeholder="Tạo mật khẩu (tối thiểu 4 ký tự)...">
+      </div>
+      <div class="input-group">
+        <label>Xác nhận mật khẩu</label>
+        <input type="password" id="reg-pass2" placeholder="Nhập lại mật khẩu...">
+      </div>
+      <div class="login-err" id="register-err"></div>
+      <div class="login-ok" id="register-ok"></div>
+      <button class="btn-fire login-btn" onclick="doRegister()">Tạo tài khoản</button>
+      <div class="login-hint">Đã có tài khoản? <strong style="cursor:pointer;color:var(--fire)" onclick="setAuthTab('login')">Đăng nhập tại đây</strong></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ====== MAIN ====== -->
+<div id="screen-main" class="screen active">
+  <!-- NAV -->
+  <nav>
+    <div class="nav-logo">🍔 QuickBite</div>
+    <div class="nav-center">
+      <button class="nav-tab active" onclick="setTab(this,'menu-section')">🍟 Thực đơn</button>
+      <button class="nav-tab" onclick="setTab(this,'promo-section')">🔥 Khuyến mãi</button>
+    </div>
+    <div class="nav-right">
+      <span class="user-name hidden" id="nav-username"></span>
+      <button class="cart-icon" onclick="toggleCart()" title="Giỏ hàng">
+        🛒 <span id="cart-count">0</span>
+      </button>
+      <button class="btn-fire" id="nav-login-btn" onclick="openAuthModal('login')">Đăng nhập</button>
+      <button class="btn-ghost hidden" id="nav-logout-btn" onclick="doLogout()">Đăng xuất</button>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-text">
+      <div class="hero-eyebrow">🔥 Nóng hổi · Giao nhanh 30 phút</div>
+      <h1 class="hero-title">ĐÓI BỤNG?<br><span>ĂN NGAY THÔI.</span></h1>
+      <p class="hero-desc">Burger, gà rán, pizza, cơm hộp – tất cả trong một nền tảng. Chọn món, bấm đặt, ngồi chờ ăn thôi!</p>
+      <div class="hero-actions">
+        <button class="btn-fire" onclick="document.getElementById('menu-section').scrollIntoView({behavior:'smooth'})">Đặt ngay</button>
+        <button class="btn-ghost">Xem ưu đãi</button>
+      </div>
+    </div>
+    <div class="hero-visual">🍔</div>
+  </div>
+
+  <!-- MENU -->
+  <div class="menu-section" id="menu-section">
+    <div class="section-header">
+      <div class="section-title">THỰC ĐƠN HÔM NAY</div>
+      <span class="tag">23 món</span>
+    </div>
+    <div class="cat-filters">
+      <button class="cat-btn active" onclick="filterMenu('all',this)">Tất cả</button>
+      <button class="cat-btn" onclick="filterMenu('burger',this)">🍔 Burger</button>
+      <button class="cat-btn" onclick="filterMenu('chicken',this)">🍗 Gà rán</button>
+      <button class="cat-btn" onclick="filterMenu('pizza',this)">🍕 Pizza</button>
+      <button class="cat-btn" onclick="filterMenu('drink',this)">🥤 Đồ uống</button>
+      <button class="cat-btn" onclick="filterMenu('side',this)">🍟 Kèm thêm</button>
+    </div>
+    <div class="menu-grid" id="menu-grid"></div>
+  </div>
+
+  <!-- PROMO -->
+  <div id="promo-section" class="menu-section hidden">
+    <div class="section-header">
+      <div class="section-title">🔥 KHUYẾN MÃI HOT</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;">
+      <div style="background:linear-gradient(135deg,#3a1200,#1a1a1a);border-radius:16px;padding:28px;border:1.5px solid rgba(255,140,0,.3)">
+        <div style="font-size:40px;margin-bottom:12px">🍔</div>
+        <div style="font-size:13px;color:var(--ember);font-weight:700;margin-bottom:6px">MUA 2 TẶNG 1</div>
+        <div style="font-size:20px;font-weight:700;margin-bottom:8px">Combo Burger Đôi</div>
+        <div style="color:#aaa;font-size:13px;margin-bottom:16px">Mua 2 burger bất kỳ, tặng 1 khoai tây chiên size L</div>
+        <button class="btn-fire" style="font-size:13px;padding:10px 20px">Áp dụng ngay</button>
+      </div>
+      <div style="background:linear-gradient(135deg,#002a1a,#1a1a1a);border-radius:16px;padding:28px;border:1.5px solid rgba(46,204,113,.3)">
+        <div style="font-size:40px;margin-bottom:12px">🥤</div>
+        <div style="font-size:13px;color:var(--green);font-weight:700;margin-bottom:6px">MIỄN PHÍ</div>
+        <div style="font-size:20px;font-weight:700;margin-bottom:8px">Nước uống khi đặt ≥150k</div>
+        <div style="color:#aaa;font-size:13px;margin-bottom:16px">Áp dụng cho tất cả đồ uống size M khi đơn hàng từ 150.000đ</div>
+        <button class="btn-fire" style="font-size:13px;padding:10px 20px;background:linear-gradient(135deg,#2ECC71,#27AE60)">Áp dụng ngay</button>
+      </div>
+      <div style="background:linear-gradient(135deg,#1a0028,#1a1a1a);border-radius:16px;padding:28px;border:1.5px solid rgba(150,100,255,.3)">
+        <div style="font-size:40px;margin-bottom:12px">🍕</div>
+        <div style="font-size:13px;color:#a87fff;font-weight:700;margin-bottom:6px">GIẢM 30%</div>
+        <div style="font-size:20px;font-weight:700;margin-bottom:8px">Pizza Thứ 6 Vui</div>
+        <div style="color:#aaa;font-size:13px;margin-bottom:16px">Giảm 30% tất cả pizza vào thứ 6 hàng tuần</div>
+        <button class="btn-fire" style="font-size:13px;padding:10px 20px;background:linear-gradient(135deg,#a87fff,#7b4fff)">Áp dụng ngay</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CART OVERLAY + PANEL -->
+<div class="cart-overlay" id="cart-overlay" onclick="toggleCart()"></div>
+<div class="cart-panel" id="cart-panel">
+  <div class="cart-header">
+    <h2>🛒 Giỏ hàng của bạn</h2>
+    <button class="cart-close" onclick="toggleCart()">✕</button>
+  </div>
+  <div class="cart-items" id="cart-items"></div>
+  <div class="cart-footer" id="cart-footer">
+    <div class="cart-total">
+      <span class="label">Tổng cộng</span>
+      <span class="amount" id="cart-total-amount">0đ</span>
+    </div>
+    <button class="btn-fire checkout-btn" onclick="goPayment()">Thanh toán ngay →</button>
+  </div>
+</div>
+
+<!-- ====== PAYMENT ====== -->
+<div id="screen-payment" class="screen">
+  <div class="payment-box">
+    <div class="payment-title">💳 Thanh Toán</div>
+    <div class="payment-sub">Xác nhận đơn hàng và chọn phương thức thanh toán</div>
+    <div class="order-summary" id="pay-summary"></div>
+    <div style="font-size:13px;color:#aaa;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Phương thức thanh toán</div>
+    <div class="pay-methods">
+      <div class="pay-method selected" onclick="selectPayMethod('qr',this)">
+        <div class="icon">📱</div>
+        <div class="label">QR Code</div>
+      </div>
+      <div class="pay-method" onclick="selectPayMethod('cash',this)">
+        <div class="icon">💵</div>
+        <div class="label">Tiền mặt</div>
+      </div>
+      <div class="pay-method" onclick="selectPayMethod('card',this)">
+        <div class="icon">💳</div>
+        <div class="label">Thẻ ngân hàng</div>
+      </div>
+    </div>
+    <div id="qr-block" class="qr-block">
+      <div class="qr-img">📲</div>
+      <p>Quét mã QR để thanh toán<br><strong>Vietcombank · MBBank · TPBank</strong></p>
+    </div>
+    <button class="btn-fire pay-confirm-btn" onclick="confirmPayment()">✔ Xác nhận thanh toán</button>
+    <button class="pay-back" onclick="backToMain()">← Quay lại giỏ hàng</button>
+  </div>
+</div>
+
+<!-- ====== SUCCESS ====== -->
+<div id="screen-success" class="screen">
+  <div class="success-icon">✅</div>
+  <div class="success-title">ĐẶT HÀNG THÀNH CÔNG!</div>
+  <div class="success-msg">Đơn hàng của bạn đã được xác nhận. Shipper đang chuẩn bị giao tới bạn trong vòng <strong>30 phút</strong>!</div>
+  <div class="success-order" id="success-order"></div>
+  <button class="btn-fire" onclick="backToMainFresh()">🍔 Đặt thêm món</button>
+</div>
+
+<script>
+// ===== DATA =====
+const MENU = [
+  {id:1,cat:'burger',icon:'🍔',name:'Burger Bò BBQ',desc:'Thịt bò nguyên miếng, sốt BBQ đậm vị',price:65000},
+  {id:2,cat:'burger',icon:'🍔',name:'Double Cheese Burger',desc:'2 lớp thịt, phô mai chảy béo ngậy',price:79000},
+  {id:3,cat:'burger',icon:'🍔',name:'Burger Gà Giòn',desc:'Gà rán giòn rụm, rau tươi, mayo',price:59000},
+  {id:4,cat:'chicken',icon:'🍗',name:'Gà Rán 3 Miếng',desc:'Giòn bên ngoài, mềm bên trong',price:69000},
+  {id:5,cat:'chicken',icon:'🍗',name:'Gà Popcorn',desc:'Gà viên giòn thơm, chấm tương ớt',price:45000},
+  {id:6,cat:'chicken',icon:'🍗',name:'Cánh Gà Cay',desc:'Cánh gà tẩm ướp gia vị cay nồng',price:55000},
+  {id:7,cat:'pizza',icon:'🍕',name:'Pizza Hải Sản',desc:'Tôm, mực, cua với phô mai mozzarella',price:129000},
+  {id:8,cat:'pizza',icon:'🍕',name:'Pizza BBQ Thịt',desc:'Thịt xông khói, dăm bông, sốt BBQ',price:119000},
+  {id:9,cat:'drink',icon:'🥤',name:'Coca-Cola',desc:'Nước ngọt có ga, uống mát lạnh',price:25000},
+  {id:10,cat:'drink',icon:'🧃',name:'Nước Cam Tươi',desc:'Cam vắt 100% nguyên chất',price:35000},
+  {id:11,cat:'drink',icon:'🧋',name:'Trà Sữa Trân Châu',desc:'Trà đen thơm với trân châu dẻo',price:45000},
+  {id:12,cat:'side',icon:'🍟',name:'Khoai Tây Chiên L',desc:'Giòn vàng rụm, muối tiêu đặc biệt',price:35000},
+  {id:13,cat:'side',icon:'🌽',name:'Ngô Nướng Bơ',desc:'Ngô nướng mật ong và bơ thơm lừng',price:29000},
+];
+
+// ===== STATE =====
+let cart = [];
+let currentUser = '';
+let selectedPayMethod = 'qr';
+
+// ===== AUTH =====
+function getUsers() {
+  try { return JSON.parse(localStorage.getItem('qb_users') || '{}'); }
+  catch(e) { return {}; }
+}
+function saveUsers(users) {
+  localStorage.setItem('qb_users', JSON.stringify(users));
+}
+
+function openAuthModal(which = 'login') {
+  setAuthTab(which);
+  document.getElementById('auth-overlay').classList.add('open');
+}
+function closeAuthModal() {
+  document.getElementById('auth-overlay').classList.remove('open');
+}
+
+function setAuthTab(which) {
+  const isLogin = which === 'login';
+  document.getElementById('tab-login').classList.toggle('active', isLogin);
+  document.getElementById('tab-register').classList.toggle('active', !isLogin);
+  document.getElementById('form-login').classList.toggle('active', isLogin);
+  document.getElementById('form-register').classList.toggle('active', !isLogin);
+  document.getElementById('login-err').textContent = '';
+  document.getElementById('register-err').textContent = '';
+  document.getElementById('register-ok').textContent = '';
+}
+
+function doRegister() {
+  const u = document.getElementById('reg-user').value.trim();
+  const p = document.getElementById('reg-pass').value;
+  const p2 = document.getElementById('reg-pass2').value;
+  const err = document.getElementById('register-err');
+  const ok = document.getElementById('register-ok');
+  err.textContent = ''; ok.textContent = '';
+
+  if (!u || !p || !p2) { err.textContent = '⚠ Vui lòng nhập đầy đủ thông tin!'; return; }
+  if (p.length < 4) { err.textContent = '⚠ Mật khẩu phải có ít nhất 4 ký tự!'; return; }
+  if (p !== p2) { err.textContent = '❌ Mật khẩu xác nhận không khớp!'; return; }
+  if (u === 'admin') { err.textContent = '❌ Tên đăng nhập này đã được sử dụng!'; return; }
+
+  const users = getUsers();
+  if (users[u]) { err.textContent = '❌ Tên đăng nhập đã tồn tại!'; return; }
+
+  users[u] = p;
+  saveUsers(users);
+
+  ok.textContent = '✅ Tạo tài khoản thành công! Đang chuyển sang đăng nhập...';
+  document.getElementById('reg-user').value = '';
+  document.getElementById('reg-pass').value = '';
+  document.getElementById('reg-pass2').value = '';
+
+  setTimeout(() => {
+    setAuthTab('login');
+    document.getElementById('inp-user').value = u;
+    document.getElementById('inp-pass').value = '';
+    document.getElementById('inp-pass').focus();
+  }, 1200);
+}
+
+function doLogin() {
+  const u = document.getElementById('inp-user').value.trim();
+  const p = document.getElementById('inp-pass').value;
+  const err = document.getElementById('login-err');
+  if (!u || !p) { err.textContent = '⚠ Vui lòng nhập đầy đủ thông tin!'; return; }
+
+  const users = getUsers();
+  const validDefault = (u === 'admin' && p === '1234');
+  const validRegistered = (users[u] !== undefined && users[u] === p);
+
+  if (!validDefault && !validRegistered) {
+    err.textContent = '❌ Sai tên đăng nhập hoặc mật khẩu!';
+    document.getElementById('inp-pass').value = '';
+    return;
+  }
+  err.textContent = '';
+  currentUser = u;
+  document.getElementById('nav-username').textContent = '👤 ' + u;
+  document.getElementById('nav-username').classList.remove('hidden');
+  document.getElementById('nav-login-btn').classList.add('hidden');
+  document.getElementById('nav-logout-btn').classList.remove('hidden');
+  closeAuthModal();
+  showToast('🎉 Đăng nhập thành công! Chào mừng ' + u, false);
+}
+
+function doLogout() {
+  currentUser = '';
+  document.getElementById('nav-username').classList.add('hidden');
+  document.getElementById('nav-login-btn').classList.remove('hidden');
+  document.getElementById('nav-logout-btn').classList.add('hidden');
+  document.getElementById('inp-pass').value = '';
+  document.getElementById('login-err').textContent = '';
+  showToast('👋 Đã đăng xuất!', false);
+}
+document.getElementById('inp-pass').addEventListener('keypress', e => { if(e.key==='Enter') doLogin(); });
+document.getElementById('inp-user').addEventListener('keypress', e => { if(e.key==='Enter') doLogin(); });
+
+function doLogout() {
+  cart = [];
+  updateCartUI();
+  showScreen('screen-login');
+  setAuthTab('login');
+  document.getElementById('inp-pass').value = '';
+  document.getElementById('login-err').textContent = '';
+}
+
+// ===== SCREEN SWITCH =====
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ===== TABS =====
+function setTab(btn, sec) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.menu-section, #promo-section').forEach(s => s.classList.add('hidden'));
+  document.getElementById(sec === 'menu-section' ? 'menu-section' : 'promo-section').classList.remove('hidden');
+}
+
+// ===== MENU =====
+function renderMenu(filter = 'all') {
+  const grid = document.getElementById('menu-grid');
+  const items = filter === 'all' ? MENU : MENU.filter(m => m.cat === filter);
+  grid.innerHTML = items.map(m => `
+    <div class="menu-card" data-cat="${m.cat}">
+      <div class="card-img">${m.icon}</div>
+      <div class="card-body">
+        <div class="card-name">${m.name}</div>
+        <div class="card-desc">${m.desc}</div>
+        <div class="card-footer">
+          <div class="card-price">${fmt(m.price)}</div>
+          <button class="card-add" onclick="addToCart(${m.id})" title="Thêm vào giỏ">+</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+function filterMenu(cat, btn) {
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderMenu(cat);
+}
+renderMenu();
+
+// ===== CART =====
+function addToCart(id) {
+  const item = MENU.find(m => m.id === id);
+  const existing = cart.find(c => c.id === id);
+  if (existing) { existing.qty++; }
+  else { cart.push({...item, qty: 1}); }
+  updateCartUI();
+  showToast('✅ Đã thêm ' + item.name + ' vào giỏ hàng!', false);
+}
+
+function changeQty(id, delta) {
+  const idx = cart.findIndex(c => c.id === id);
+  if (idx === -1) return;
+  cart[idx].qty += delta;
+  if (cart[idx].qty <= 0) cart.splice(idx, 1);
+  updateCartUI();
+}
+
+function updateCartUI() {
+  const total = cart.reduce((s, c) => s + c.price * c.qty, 0);
+  const count = cart.reduce((s, c) => s + c.qty, 0);
+  document.getElementById('cart-count').textContent = count;
+  const itemsEl = document.getElementById('cart-items');
+  if (cart.length === 0) {
+    itemsEl.innerHTML = `<div class="cart-empty"><div class="cart-empty-icon">🛒</div><div>Giỏ hàng trống<br><small style="color:#555">Hãy thêm món ngon nào đó!</small></div></div>`;
+    document.getElementById('cart-footer').style.display = 'none';
+  } else {
+    document.getElementById('cart-footer').style.display = '';
+    itemsEl.innerHTML = cart.map(c => `
+      <div class="cart-item">
+        <div class="ci-icon">${c.icon}</div>
+        <div class="ci-info">
+          <div class="ci-name">${c.name}</div>
+          <div class="ci-price">${fmt(c.price)}</div>
+        </div>
+        <div class="ci-qty">
+          <button class="qty-btn" onclick="changeQty(${c.id},-1)">−</button>
+          <span>${c.qty}</span>
+          <button class="qty-btn" onclick="changeQty(${c.id},1)">+</button>
+        </div>
+      </div>
+    `).join('');
+  }
+  document.getElementById('cart-total-amount').textContent = fmt(total);
+}
+
+function toggleCart() {
+  const panel = document.getElementById('cart-panel');
+  const overlay = document.getElementById('cart-overlay');
+  panel.classList.toggle('open');
+  overlay.classList.toggle('open');
+}
+
+// ===== PAYMENT =====
+function goPayment() {
+  if (cart.length === 0) { showToast('⚠ Giỏ hàng trống!', true); return; }
+  toggleCart();
+  buildPaySummary();
+  showScreen('screen-payment');
+}
+
+function buildPaySummary() {
+  const total = cart.reduce((s,c) => s + c.price*c.qty, 0);
+  const ship = 15000;
+  let rows = cart.map(c => `<div class="order-row"><span class="name">${c.icon} ${c.name} x${c.qty}</span><span class="val">${fmt(c.price*c.qty)}</span></div>`).join('');
+  document.getElementById('pay-summary').innerHTML = `
+    <h4>Chi tiết đơn hàng</h4>
+    ${rows}
+    <div class="order-row"><span class="name">Phí giao hàng</span><span class="val">${fmt(ship)}</span></div>
+    <hr class="order-divider">
+    <div class="order-total-row"><span>Tổng thanh toán</span><span class="val">${fmt(total+ship)}</span></div>
+  `;
+}
+
+function selectPayMethod(method, el) {
+  selectedPayMethod = method;
+  document.querySelectorAll('.pay-method').forEach(m => m.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('qr-block').style.display = method === 'qr' ? 'flex' : 'none';
+}
+
+function confirmPayment() {
+  const total = cart.reduce((s,c) => s + c.price*c.qty, 0) + 15000;
+  const orderId = 'QB' + Date.now().toString().slice(-6);
+  const methodLabel = {qr:'Quét QR', cash:'Tiền mặt', card:'Thẻ ngân hàng'}[selectedPayMethod];
+  document.getElementById('success-order').innerHTML = `
+    <h4>🧾 Thông tin đơn hàng</h4>
+    <div class="success-detail">Mã đơn: <span>#${orderId}</span></div>
+    <div class="success-detail">Số món: <span>${cart.reduce((s,c)=>s+c.qty,0)} món</span></div>
+    <div class="success-detail">Thanh toán: <span>${methodLabel}</span></div>
+    <div class="success-detail">Tổng tiền: <span>${fmt(total)}</span></div>
+    <div class="success-detail">Thời gian giao: <span>~ 25–35 phút</span></div>
+  `;
+  cart = [];
+  updateCartUI();
+  showScreen('screen-success');
+}
+
+function backToMain() {
+  showScreen('screen-main');
+}
+function backToMainFresh() {
+  showScreen('screen-main');
+}
+
+// ===== UTILS =====
+function fmt(n) { return n.toLocaleString('vi-VN') + 'đ'; }
+function showToast(msg, isErr=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (isErr ? ' error' : '');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.className = '', 3000);
+}
+</script>
+</body>
+</html>
